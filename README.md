@@ -1,2 +1,1 @@
-# amod_project
-AMOD project 
+Progetto AMOD di Gianpaolo Pestilli
