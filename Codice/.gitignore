@@ -1,0 +1,14 @@
+# Ambienti virtuali
+venv/
+.venv/
+
+# Cartelle di PyCharm
+.idea/
+
+# Cache di Python
+__pycache__/
+*.pyc
+
+# Sicurezza: file di licenza e log
+*.lic
+*.log
