@@ -1,48 +1,55 @@
 # In questo file ci sono gli algoritmi per vertici pesati
 
 from amplpy import AMPL
+import gurobipy as gp
+from gurobipy import GRB
+import networkx as nx
 
 def vertex_cover_pesato_1(G):
-    C = set()
-    archi_coperti = set()
-    W = [n for p, n in sorted([(G.nodes[n]['peso'], n) for n in G.nodes()])]
+    num_edges = G.number_of_edges()
+    if num_edges == 0:
+        return set()
 
+    C = set()
+    n_archi_coperti = 0
+    W = sorted(G.nodes(), key=lambda x: (G.nodes[x]['peso'], x))
     for v in W:
         C.add(v)
-
-        for arco in G.edges(v):
-            archi_coperti.add(tuple(sorted(arco)))
-
-        if len(archi_coperti) == G.number_of_edges():
-            return C
+        for u in G.neighbors(v):
+            if u not in C:
+                n_archi_coperti += 1
+        if n_archi_coperti == num_edges:
+            break
 
     return C
 
 
 def vertex_cover_pesato_2(G):
+    num_edges = G.number_of_edges()
+    if num_edges == 0:
+        return set()
     C = set()
-    archi_coperti = set()
-
-    # Ordino per rapporto peso/grado
-    coppie = [(G.nodes[n]['peso'] / G.degree(n) if G.degree(n) > 0 else float('inf'), n) for n in G.nodes()]
-    coppie.sort()
-    W = [n for rapporto, n in coppie]
+    n_archi_coperti = 0
+    W = sorted(
+        G.nodes(),
+        key=lambda n: (G.nodes[n]['peso'] / G.degree(n) if G.degree(n) > 0 else float('inf'), n)
+    )
 
     for v in W:
         C.add(v)
 
-        for arco in G.edges(v):
-            archi_coperti.add(tuple(sorted(arco)))
+        for u in G.neighbors(v):
+            if u not in C:
+                n_archi_coperti += 1
 
-        if len(archi_coperti) == G.number_of_edges():
-            return C
+        if n_archi_coperti == num_edges:
+            break
 
     return C
 
 
 def vertex_cover_pesato_3(G):
     C = set()
-    archi_coperti = set()
     lista_archi = []
     for u, v in G.edges():
         peso_totale = G.nodes[u]['peso'] + G.nodes[v]['peso']
@@ -50,16 +57,9 @@ def vertex_cover_pesato_3(G):
     lista_archi.sort()
 
     for peso, u, v in lista_archi:
-        arco = tuple(sorted((u, v))) #lo uso per avere coppie ordinate (1,2) = (2,1)
-        if arco not in archi_coperti:
+        if u not in C and v not in C:
             C.add(u)
             C.add(v)
-
-            for a in G.edges(u):
-                archi_coperti.add(tuple(sorted(a)))
-            for a in G.edges(v):
-                archi_coperti.add(tuple(sorted(a)))
-
     return C
 
 
@@ -74,6 +74,23 @@ def vertex_cover_pesato_4(G, model_path, solver):
     for n in G.nodes():
         pesi[n] = G.nodes[n]['peso']
     ampl.param["c"] = pesi
+    ampl.set["TRIANGOLI"] = []
+    ampl.solve()
+
+    x_values = ampl.get_variable("x").get_values().to_dict()
+    C = {nodo for nodo, valore in x_values.items() if valore >= 0.5}
+    return C
+
+def vertex_cover_pesato_4_OCE_priori_ampl(G, model_path, solver):
+    ampl = AMPL()
+    ampl.setOption("solver", solver)
+    ampl.read(model_path)
+
+    ampl.set["V"] = list(G.nodes())
+    ampl.set["E"] = list(G.edges())
+    ampl.param["c"] = {n: G.nodes[n]['peso'] for n in G.nodes()}
+    triangoli = [c for c in nx.enumerate_all_cliques(G) if len(c) == 3]
+    ampl.set["TRIANGOLI"] = triangoli
 
     ampl.solve()
 
@@ -81,14 +98,50 @@ def vertex_cover_pesato_4(G, model_path, solver):
     C = {nodo for nodo, valore in x_values.items() if valore >= 0.5}
     return C
 
-def vertex_cover_pesato_duale_5(G):
 
+def vertex_cover_pesato_4_OCE_cutting_plane(G):
+    triangoli = [c for c in nx.enumerate_all_cliques(G) if len(c) == 3]
+
+    model = gp.Model("Weighted_Cutting_Plane_Dinamico")
+    model.Params.OutputFlag = 0
+
+    x = model.addVars(G.nodes(), vtype=GRB.CONTINUOUS, lb=0.0, ub=1.0, name="x")
+
+    model.setObjective(
+        gp.quicksum(G.nodes[i]['peso'] * x[i] for i in G.nodes()),
+        GRB.MINIMIZE
+    )
+
+    for u, v in G.edges():
+        model.addConstr(x[u] + x[v] >= 1)
+
+    while True:
+        model.optimize()
+        x_vals = model.getAttr('X', x)
+
+        tagli_da_aggiungere = []
+
+        for u, v, w in triangoli:
+            if x_vals[u] + x_vals[v] + x_vals[w] < 1.999:
+                tagli_da_aggiungere.append((u, v, w))
+
+        if not tagli_da_aggiungere:
+            break
+
+        for u, v, w in tagli_da_aggiungere:
+            model.addConstr(x[u] + x[v] + x[w] >= 2)
+
+    C = {i for i in G.nodes() if x[i].X >= 0.5}
+    return C
+
+
+def vertex_cover_pesato_duale_5(G):
     x = {n: 0 for n in G.nodes()}
     y = {tuple(sorted(e)): 0 for e in G.edges()}
     I = {tuple(sorted(e)) for e in G.edges()}
 
     while I:
-        e = list(I)[0]
+        e = next(iter(I))
         (u, v) = e
 
         sum_y_u = sum(y[tuple(sorted(edge))] for edge in G.edges(u))
@@ -106,6 +159,4 @@ def vertex_cover_pesato_duale_5(G):
             y[e] = increment_v
             x[v] = 1
             I -= {tuple(sorted(edge)) for edge in G.edges(v)}
-            
-    # Ritorno i nodi marcati (in cover)
     return {n for n, valore in x.items() if valore == 1}
