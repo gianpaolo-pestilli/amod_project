@@ -71,7 +71,14 @@ def vertex_cover_non_pesato_4_simple_DRD(G, model_path, solver):
 
 def vertex_cover_non_pesato_4_OCE_priori_ampl(G, model_path, solver):
     # Trovo i triangoli
-    triangoli = [c for c in nx.enumerate_all_cliques(G) if len(c) == 3]
+    triangoli_set = set()
+    for u, v in G.edges():
+        vicini_comuni = set(G.neighbors(u)).intersection(G.neighbors(v))
+        for w in vicini_comuni:
+            triangoli_set.add(tuple(sorted((u, v, w))))
+    triangoli = list(triangoli_set)
+
+
     ampl = AMPL()
     ampl.setOption("solver", solver)
     ampl.read(model_path)
@@ -95,7 +102,12 @@ def vertex_cover_non_pesato_4_OCE_priori_ampl(G, model_path, solver):
 
 def vertex_cover_non_pesato_4_OCE_cutting_plane(G):
     # Prendo tutti i triangoli
-    triangoli = [c for c in nx.enumerate_all_cliques(G) if len(c) == 3]
+    triangoli_set = set()
+    for u, v in G.edges():
+        vicini_comuni = set(G.neighbors(u)).intersection(G.neighbors(v))
+        for w in vicini_comuni:
+            triangoli_set.add(tuple(sorted((u, v, w))))
+    triangoli = list(triangoli_set)
 
     model = gp.Model("Cutting plane")
     model.Params.OutputFlag = 0

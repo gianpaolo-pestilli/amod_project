@@ -89,7 +89,12 @@ def vertex_cover_pesato_4_OCE_priori_ampl(G, model_path, solver):
     ampl.set["V"] = list(G.nodes())
     ampl.set["E"] = list(G.edges())
     ampl.param["c"] = {n: G.nodes[n]['peso'] for n in G.nodes()}
-    triangoli = [c for c in nx.enumerate_all_cliques(G) if len(c) == 3]
+    triangoli_set = set()
+    for u, v in G.edges():
+        vicini_comuni = set(G.neighbors(u)).intersection(G.neighbors(v))
+        for w in vicini_comuni:
+            triangoli_set.add(tuple(sorted((u, v, w))))
+    triangoli = list(triangoli_set)
     ampl.set["TRIANGOLI"] = triangoli
 
     ampl.solve()
@@ -100,7 +105,13 @@ def vertex_cover_pesato_4_OCE_priori_ampl(G, model_path, solver):
 
 
 def vertex_cover_pesato_4_OCE_cutting_plane(G):
-    triangoli = [c for c in nx.enumerate_all_cliques(G) if len(c) == 3]
+
+    triangoli_set = set()
+    for u, v in G.edges():
+        vicini_comuni = set(G.neighbors(u)).intersection(G.neighbors(v))
+        for w in vicini_comuni:
+            triangoli_set.add(tuple(sorted((u, v, w))))
+    triangoli = list(triangoli_set)
 
     model = gp.Model("Weighted_Cutting_Plane_Dinamico")
     model.Params.OutputFlag = 0

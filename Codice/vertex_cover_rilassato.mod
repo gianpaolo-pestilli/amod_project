@@ -13,7 +13,7 @@ param c {V} >= 0;
 # Eventuali triangoli derivanti da odd inequalities
 set TRIANGOLI within {V,V,V};
 
-# Variabili intere (rilassamento lineare)
+# Variabili rilassate (rilassamento lineare)
 var x {V} >= 0;
 
 # Funzione obiettivo
