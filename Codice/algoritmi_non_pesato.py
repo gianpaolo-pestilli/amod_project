@@ -3,7 +3,7 @@
 from amplpy import AMPL
 import gurobipy as gp
 from gurobipy import GRB
-import networkx as nx
+
 
 def vertex_cover_non_pesato_1(G):
     C = set()
