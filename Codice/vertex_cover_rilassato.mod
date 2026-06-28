@@ -10,21 +10,13 @@ set E within {V,V};
 # Pesi di ciascun vertice
 param c {V} >= 0;
 
-# Eventuali triangoli derivanti da odd inequalities
-set TRIANGOLI within {V,V,V};
-
 # Variabili rilassate (rilassamento lineare)
 var x {V} >= 0;
 
 # Funzione obiettivo
-
 minimize Peso_Complessivo:
     sum {u in V} c[u] * x[u];
 
 # Vincoli di cover
 subject to Vincolo_Cover {(u,v) in E}:
     x[u] + x[v] >= 1;
-
-# Vincolo di odd inequality
-subject to odd_inequalities {(u,v,w) in TRIANGOLI}:
-    x[u] + x[v] + x[w] >= 2;

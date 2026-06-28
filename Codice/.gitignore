@@ -12,3 +12,8 @@ __pycache__/
 # Sicurezza: file di licenza e log
 *.lic
 *.log
+
+# Troppo pesanti
+dataset_non_pesato.csv
+dataset_pesato.csv
+Report_Benchmark_Totale.pdf
