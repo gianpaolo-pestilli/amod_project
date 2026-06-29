@@ -6,7 +6,7 @@ def vertex_cover_0(G, model_path, solver, is_pesato=False):
     ampl.setOption("solver", solver)
 
     if solver.lower() == 'gurobi':
-        ampl.setOption("gurobi_options", "timelimit=10 numericfocus=1")
+        ampl.setOption("gurobi_options", "timelimit=8")
 
     ampl.read(model_path)
     ampl.set["V"] = list(G.nodes())

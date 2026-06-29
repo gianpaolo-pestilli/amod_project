@@ -1,3 +1,4 @@
+import os
 from vertex_cover_PLI import *
 from algoritmi_non_pesato import *
 import matplotlib.pyplot as plt
@@ -147,7 +148,7 @@ def run_benchmark_on_list(graphs_list, PLI_path, PL_path):
 
                     tot_times[i] += time_exec
 
-                    # Se timeout è True, has_timeout diventa True e resta True per sempre
+                    # Se ha fatto timeout almeno una volta
                     has_timeout[i] = has_timeout[i] or timeout
                     has_problems[i] = has_problems[i] or problems
 
@@ -160,7 +161,6 @@ def run_benchmark_on_list(graphs_list, PLI_path, PL_path):
         for i in range(num_algos):
             avg_ratio = tot_ratios[i] / valid_instances
             avg_time = tot_times[i] / valid_instances
-            # Aggiungiamo alla lista i flag persistenti (che saranno True se è successo almeno una volta)
             summary.append([avg_ratio, avg_time, has_timeout[i], has_problems[i]])
 
     return summary
@@ -170,10 +170,6 @@ def run_benchmark_on_list(graphs_list, PLI_path, PL_path):
 
 
 def salva_benchmark_in_pdf(summary, nome_classe, pdf_obj):
-
-    # Prende in input il risultato della run_benchmark_on_list
-    # **************** il nome della classe considerata
-    # **************** pdf_obj file pdf
 
     # Nomi degli algoritmi
     algo_names = ["PLI", "Algo_1", "Algo_2", "Algo_3", "DRD", "Cut&DRD", "Duale"]
@@ -185,13 +181,11 @@ def salva_benchmark_in_pdf(summary, nome_classe, pdf_obj):
     fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(14, 6))
     fig.suptitle(f"Benchmark: {nome_classe}", fontsize=16)
 
-    # Plot Ratios
     ax1.bar(algo_names, ratios, color=colors, edgecolor='black', alpha=0.7)
     ax1.set_title("Rapporto di Approssimazione Medio")
     ax1.set_ylabel("Ratio (Alg / PLI)")
     ax1.grid(axis='y', linestyle='--', alpha=0.7)
 
-    # Plot Times
     ax2.bar(algo_names, times, color=colors, edgecolor='black', alpha=0.7)
     ax2.set_title("Tempo medio di esecuzione (sec)")
     ax2.set_ylabel("Secondi")
@@ -210,7 +204,7 @@ def salva_benchmark_in_pdf(summary, nome_classe, pdf_obj):
     # SALVATAGGIO NELL'OGGETTO PDF APERTO
     pdf_obj.savefig(fig)
 
-    # CHIUSURA FIGURA (Fondamentale per liberare RAM)
+    # CHIUSURA FIGURA
     plt.close(fig)
 
 
@@ -228,40 +222,36 @@ def crea_grafo_da_riga(row):
 
 
 def overall_n_p(PLI_path, PL_path, CSV_path):
-    print("Apertura del file PDF unico ('Report_Benchmark_Totale.pdf')...")
-    # Apriamo il PDF assegnandolo a una variabile
-    pdf = PdfPages('Report_Benchmark_Totale.pdf')
+    print("Avvio Benchmark: Salvataggio blindato a batch separati.")
 
-    try:
-        # Leggiamo il CSV a blocchi di 15 per rispettare la struttura del tuo dataset
-        reader = pd.read_csv(CSV_path, chunksize=15)
+    reader = pd.read_csv(CSV_path, chunksize=15)
 
-        for i, chunk in enumerate(reader):
-            # IL TRUCCO: Prendiamo solo le prime 10 righe del chunk, le altre 5 vengono scartate
-            chunk_10 = chunk.iloc[:10]
+    for i, chunk in enumerate(reader):
+        batch_id = i + 1
+        nome_file_batch = f"Report_Batch_{batch_id:02d}.pdf"
 
-            row = chunk_10.iloc[0]
-            nome_classe = f"N:{row['n_target']} | D:{row['d_target']} | C:{row['classe']}"
+        if os.path.exists(nome_file_batch):
+            print(f"Batch {batch_id} già completato, salto al prossimo...")
+            continue
 
-            print(f"Processando {nome_classe} (Batch {i + 1} - Analizzo 10 istanze su 15)...")
+        chunk_10 = chunk.iloc[:10]
+        row = chunk_10.iloc[0]
+        nome_classe = f"N:{row['n_target']} | D:{row['d_target']} | C:{row['classe']}"
 
+        print(f"Processando {nome_classe} (Batch {batch_id}/45)...")
+
+        try:
             list_graphs = [crea_grafo_da_riga(r) for _, r in chunk_10.iterrows()]
-
-            # Lanciamo il benchmark
             summary = run_benchmark_on_list(list_graphs, PLI_path, PL_path)
 
-            # Salva i grafici come una NUOVA PAGINA nel PDF aperto
-            salva_benchmark_in_pdf(summary, nome_classe, pdf)
+            # Salvataggio immediato del singolo batch
+            with PdfPages(nome_file_batch) as pdf:
+                salva_benchmark_in_pdf(summary, nome_classe, pdf)
 
-        print("\n--- Benchmark completato con successo su tutto il dataset! ---")
+            print(f"  -> Salvato: {nome_file_batch}")
 
-    except KeyboardInterrupt:
-        print("\n!!! Esecuzione interrotta manualmente !!!")
-        print("Chiusura di emergenza in corso: salvo le pagine generate finora...")
+        except Exception as e:
+            print(f"\n!!! Errore critico nel batch {batch_id}: {e} !!!")
+            continue
 
-    except Exception as e:
-        print(f"\n!!! Errore imprevisto durante il batch {i + 1}: {e} !!!")
-
-    finally:
-        pdf.close()
-        print("File 'Report_Benchmark_Totale.pdf' chiuso e salvato in modo sicuro.")
+    print("\n--- Benchmark completato. ---")

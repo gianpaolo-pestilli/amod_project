@@ -1,6 +1,5 @@
 # In questo file ci sono gli algoritmi per vertici non pesati
 import time
-
 from amplpy import AMPL
 import gurobipy as gp
 from gurobipy import GRB
@@ -58,7 +57,7 @@ def vertex_cover_non_pesato_4_simple_DRD(G, model_path, solver):
     ampl.setOption("solver", solver)
 
     if solver.lower() == 'gurobi':
-        ampl.setOption("gurobi_options", "timelimit=10 numericfocus=1")
+        ampl.setOption("gurobi_options", "timelimit=10")
 
     ampl.read(model_path)
     ampl.set["V"] = list(G.nodes())
@@ -79,7 +78,7 @@ def vertex_cover_non_pesato_4_simple_DRD(G, model_path, solver):
     if status != 2:
         x_values = ampl.get_variable("x").get_values().to_dict()
         if x_values:
-            C = {nodo for nodo, valore in x_values.items() if valore >= 0.5}
+            C = {nodo for nodo, valore in x_values.items() if valore >= 0.499}
 
     if not C:
         C = set(G.nodes())
@@ -88,11 +87,23 @@ def vertex_cover_non_pesato_4_simple_DRD(G, model_path, solver):
 
 
 def vertex_cover_non_pesato_4_OCI_cutting_plane(G):
+
+    start_time = time.time()  # Limiti di tempo
     triangoli_set = set()
     for u, v in G.edges():
+        # 2 secondi per cercare tutti i triangoli
+        if time.time() - start_time > 2.0:
+            break
         vicini_comuni = set(G.neighbors(u)).intersection(G.neighbors(v))
         for w in vicini_comuni:
             triangoli_set.add(tuple(sorted((u, v, w))))
+            # Gurobi gestisce bene massimo 50000 triangoli
+            if len(triangoli_set) > 50000:
+                break
+        # Doppio break per uscire dal ciclo esterno
+        if len(triangoli_set) > 50000:
+            break
+
     triangoli = list(triangoli_set)
 
     model = gp.Model("Cutting plane")
@@ -129,7 +140,7 @@ def vertex_cover_non_pesato_4_OCI_cutting_plane(G):
             break
 
         x_vals = model.getAttr('X', x)
-        best_C = {i for i in G.nodes() if x_vals[i] >= 0.5}
+        best_C = {i for i in G.nodes() if x_vals[i] >= 0.499}
 
         tagli_da_aggiungere = []
         for u, v, w in triangoli:

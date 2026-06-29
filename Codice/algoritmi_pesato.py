@@ -1,6 +1,5 @@
 # In questo file ci sono gli algoritmi per vertici pesati
 import time
-
 from amplpy import AMPL
 import gurobipy as gp
 from gurobipy import GRB
@@ -62,7 +61,7 @@ def vertex_cover_pesato_4(G, model_path, solver):
     ampl = AMPL()
     ampl.setOption("solver", solver)
     if solver.lower() == 'gurobi':
-        ampl.setOption("gurobi_options", "timelimit=300 numericfocus=1")
+        ampl.setOption("gurobi_options", "timelimit=8")
 
     ampl.read(model_path)
     ampl.set["V"] = list(G.nodes())
@@ -86,7 +85,7 @@ def vertex_cover_pesato_4(G, model_path, solver):
     if status != 2:
         x_values = ampl.get_variable("x").get_values().to_dict()
         if x_values:
-            C = {nodo for nodo, valore in x_values.items() if valore >= 0.5}
+            C = {nodo for nodo, valore in x_values.items() if valore >= 0.499}
 
     if not C:
         C = set(G.nodes())
@@ -95,17 +94,24 @@ def vertex_cover_pesato_4(G, model_path, solver):
 
 
 def vertex_cover_pesato_4_OCI_cutting_plane(G):
+    # Ricerca triangoli
+    start_tri = time.time()
     triangoli_set = set()
     for u, v in G.edges():
+        if time.time() - start_tri > 2.0:
+            break
         vicini_comuni = set(G.neighbors(u)).intersection(G.neighbors(v))
         for w in vicini_comuni:
             triangoli_set.add(tuple(sorted((u, v, w))))
+            if len(triangoli_set) > 50000:
+                break
+        if len(triangoli_set) > 50000:
+            break
     triangoli = list(triangoli_set)
 
+    # Solver
     model = gp.Model("Weighted_Cutting_Plane_Dinamico")
     model.Params.OutputFlag = 0
-
-    # Limiti RAM
     model.Params.Threads = 1
     model.Params.NodefileStart = 1.0
 
@@ -117,10 +123,11 @@ def vertex_cover_pesato_4_OCI_cutting_plane(G):
 
     best_C = set()
     status = 0
-    start_time = time.time()
+    start_solve = time.time()
 
     while True:
-        tempo_rimasto = 300.0 - (time.time() - start_time)
+        # Timeout 8 secondi totale
+        tempo_rimasto = 8.0 - (time.time() - start_solve)
         if tempo_rimasto <= 0:
             status = 1  # Timeout
             break
@@ -136,10 +143,12 @@ def vertex_cover_pesato_4_OCI_cutting_plane(G):
             break
 
         x_vals = model.getAttr('X', x)
-        best_C = {i for i in G.nodes() if x_vals[i] >= 0.5}
+        # Soglia 0.499
+        best_C = {i for i in G.nodes() if x_vals[i] >= 0.499}
 
         tagli_da_aggiungere = []
         for u, v, w in triangoli:
+            # Soglia 1.999
             if x_vals[u] + x_vals[v] + x_vals[w] < 1.999:
                 tagli_da_aggiungere.append((u, v, w))
 

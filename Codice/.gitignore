@@ -16,4 +16,6 @@ __pycache__/
 # Troppo pesanti
 dataset_non_pesato.csv
 dataset_pesato.csv
-Report_Benchmark_Totale.pdf
+
+# Per evitare modifiche
+Presentazione_0386492.pptx

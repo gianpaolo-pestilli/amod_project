@@ -26,7 +26,6 @@ def main():
     print(f"File PLI: {paths['PLI_path']}")
     print(f"File CSV: {paths['CSV_path']}")
 
-    # 2. Lancio del benchmark
     try:
         overall_n_p(paths['PLI_path'], paths['PL_path'], paths['CSV_path'])
         print("\n--- Benchmark completato con successo! ---")
